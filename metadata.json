@@ -1,0 +1,8 @@
+{
+  "name": "Remix: DentalCare App",
+  "description": "A complete Material Design 3 interactive design system and premium high-fidelity prototype for the DentalCare Android Application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

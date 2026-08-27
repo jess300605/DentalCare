@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
+
+@theme {
+  --font-sans: "Inter", "Roboto", system-ui, sans-serif;
+  --font-roboto: "Roboto", sans-serif;
+  
+  /* Material Design 3 Core DentalCare Colors */
+  --color-primary-m3: #1976D2;
+  --color-secondary-m3: #26A69A;
+  --color-bg-m3: #F8FAFC;
+  --color-surface-m3: #FFFFFF;
+  --color-success-m3: #4CAF50;
+  --color-warning-m3: #FFC107;
+  --color-error-m3: #F44336;
+  
+  /* Additional tonal variations */
+  --color-primary-container-m3: #E3F2FD;
+  --color-on-primary-container-m3: #0D47A1;
+  --color-secondary-container-m3: #E0F2F1;
+  --color-on-secondary-container-m3: #004D40;
+  --color-outline-m3: #B0BEC5;
+  --color-surface-variant-m3: #ECEFF1;
+}
+
+/* Base style resets and customizations */
+body {
+  font-family: var(--font-sans);
+  background-color: #0f172a; /* Slate 900 for the gorgeous desktop-class design system workspace */
+  color: #f1f5f9;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbars for simulator UI */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
