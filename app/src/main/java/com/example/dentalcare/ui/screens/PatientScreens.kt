@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +25,6 @@ import com.example.dentalcare.data.AppointmentStatus
 import com.example.dentalcare.data.Dentist
 import com.example.dentalcare.data.NotificationItem
 import com.example.dentalcare.data.NotificationType
-
 import com.example.dentalcare.data.AuthRepository
 
 // ==========================================
@@ -34,6 +34,7 @@ import com.example.dentalcare.data.AuthRepository
 fun PatientDashboardScreen(
     appointments: List<Appointment>,
     notifications: List<NotificationItem>,
+    userName: String,
     onNavigate: (String) -> Unit,
     onSelectAppointment: (Appointment) -> Unit
 ) {
@@ -43,20 +44,20 @@ fun PatientDashboardScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Hero Card
         item {
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1976D2)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        "Hello, Alex Johnson",
+                        "Hello, $userName",
                         style = MaterialTheme.typography.titleLarge.copy(color = Color.White, fontWeight = FontWeight.Bold)
                     )
                     Text(
@@ -132,7 +133,7 @@ fun PatientDashboardScreen(
         item {
             Text(
                 "Upcoming Schedule",
-                style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 18.sp),
+                style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 18.sp),
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -140,7 +141,7 @@ fun PatientDashboardScreen(
         if (upcomingAppts.isEmpty()) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = CardDefaults.outlinedCardBorder(),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -170,7 +171,7 @@ fun PatientDashboardScreen(
                             onNavigate("my-appointments")
                         },
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -189,7 +190,7 @@ fun PatientDashboardScreen(
                         Spacer(modifier = Modifier.width(12.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(appt.dentistName, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                            Text(appt.dentistName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text(appt.dentistSpecialty, color = Color(0xFF64748B), fontSize = 12.sp)
                             
                             Row(
@@ -240,12 +241,12 @@ fun DentistListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Text(
             "Select Clinical Dentist",
-            style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+            style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
         )
         Text(
             "Our certified team of world-class specialists is ready to provide state-of-the-art care.",
@@ -262,7 +263,7 @@ fun DentistListScreen(
                     onClick = { onSelectDentist(doc) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -283,7 +284,7 @@ fun DentistListScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 doc.name,
-                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             )
                             Text(
                                 doc.specialty,
@@ -356,14 +357,14 @@ fun BookAppointmentScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             Text(
                 "Configure Booking Details",
-                style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
             )
         }
 
@@ -371,7 +372,7 @@ fun BookAppointmentScreen(
         selectedDentist?.let { doc ->
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = CardDefaults.outlinedCardBorder(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -390,7 +391,7 @@ fun BookAppointmentScreen(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(doc.name, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                            Text(doc.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text(doc.specialty, color = Color(0xFF64748B), fontSize = 12.sp)
                         }
                     }
@@ -407,7 +408,7 @@ fun BookAppointmentScreen(
                 leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF1976D2),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = Color(0xFFCBD5E1)
                 )
             )
@@ -432,7 +433,7 @@ fun BookAppointmentScreen(
                             Button(
                                 onClick = { selectedTime = t },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isSelected) Color(0xFF1976D2) else Color.White
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
                                 ),
                                 border = if (isSelected) null else CardDefaults.outlinedCardBorder(),
                                 shape = RoundedCornerShape(8.dp),
@@ -440,7 +441,7 @@ fun BookAppointmentScreen(
                             ) {
                                 Text(
                                     t,
-                                    color = if (isSelected) Color.White else Color(0xFF475569),
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -460,7 +461,7 @@ fun BookAppointmentScreen(
                 placeholder = { Text("e.g. Regular scaling, brackets checkup, dental pain") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF1976D2),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = Color(0xFFCBD5E1)
                 )
             )
@@ -479,7 +480,7 @@ fun BookAppointmentScreen(
                         )
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -505,7 +506,7 @@ fun AppointmentConfirmationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -529,7 +530,7 @@ fun AppointmentConfirmationScreen(
             "Booking Successfully Confirmed!",
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             ),
             modifier = Modifier.padding(top = 24.dp, bottom = 8.dp)
@@ -544,7 +545,7 @@ fun AppointmentConfirmationScreen(
         )
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = CardDefaults.outlinedCardBorder(),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)
@@ -552,29 +553,29 @@ fun AppointmentConfirmationScreen(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Dentist", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text(dentistName, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 13.sp)
+                    Text(dentistName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                 }
                 HorizontalDivider(color = Color(0xFFF1F5F9))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Date", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text(date, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 13.sp)
+                    Text(date, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                 }
                 HorizontalDivider(color = Color(0xFFF1F5F9))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Time", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text(time, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 13.sp)
+                    Text(time, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                 }
                 HorizontalDivider(color = Color(0xFFF1F5F9))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Reason", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text(reason, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 13.sp)
+                    Text(reason, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                 }
             }
         }
 
         Button(
             onClick = onFinish,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) {
@@ -605,12 +606,12 @@ fun MyAppointmentsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Text(
             "Your Appointments",
-            style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+            style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
         )
         Text(
             "Track, cancel or reschedule dental treatments.",
@@ -649,7 +650,7 @@ fun MyAppointmentsScreen(
             ) {
                 items(filteredAppts) { appt ->
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         border = CardDefaults.outlinedCardBorder(),
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -670,7 +671,7 @@ fun MyAppointmentsScreen(
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(appt.dentistName, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                                    Text(appt.dentistName, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                     Text(appt.dentistSpecialty, color = Color(0xFF64748B), fontSize = 11.sp)
                                 }
                                 Surface(
@@ -759,7 +760,7 @@ fun MyAppointmentsScreen(
                                     Button(
                                         onClick = { onReschedule(appt.id) },
                                         shape = RoundedCornerShape(8.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text("Reschedule", fontSize = 12.sp)
@@ -786,7 +787,7 @@ fun NotificationsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Row(
@@ -796,7 +797,7 @@ fun NotificationsScreen(
         ) {
             Text(
                 "Clinical Notifications",
-                style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
             )
             if (notifications.isNotEmpty()) {
                 TextButton(onClick = onClearAll) {
@@ -819,7 +820,7 @@ fun NotificationsScreen(
                 items(notifications) { notif ->
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = if (notif.read) Color.White else Color(0xFFF1F5F9)
+                            containerColor = if (notif.read) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -865,7 +866,7 @@ fun NotificationsScreen(
                                 Text(
                                     notif.title,
                                     fontWeight = if (notif.read) FontWeight.Medium else FontWeight.Bold,
-                                    color = Color(0xFF0F172A),
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     fontSize = 13.sp
                                 )
                                 Text(
@@ -894,12 +895,20 @@ fun NotificationsScreen(
 // 7. PATIENT PROFILE VIEW
 // ==========================================
 @Composable
-fun PatientProfileScreen(onLogout: () -> Unit) {
+fun PatientProfileScreen(
+    isDarkMode: Boolean,
+    onThemeChange: (Boolean) -> Unit,
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
+    onLogout: () -> Unit
+) {
     val authRepository = remember { AuthRepository() }
+    val isSpanish = currentLanguage == "es"
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -908,91 +917,102 @@ fun PatientProfileScreen(onLogout: () -> Unit) {
             modifier = Modifier
                 .size(80.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF1976D2)),
+                .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center
         ) {
-            Text("AJ", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            val initials = authRepository.currentUser?.displayName?.split(" ")
+                ?.mapNotNull { it.firstOrNull()?.toString() }
+                ?.joinToString("")?.take(2)?.uppercase() ?: "U"
+            Text(initials, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
-            "Alex Johnson",
-            style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold),
+            authRepository.currentUser?.displayName ?: (if (isSpanish) "Nombre de Usuario" else "User Name"),
+            style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(top = 12.dp)
         )
         Text(
-            authRepository.currentUser?.email ?: "alex.johnson@example.com",
+            authRepository.currentUser?.email ?: "user@example.com",
             color = Color(0xFF64748B),
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
         )
 
-        // Health Ratios Summary Grid
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        // Settings Section
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
         ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🦷 Restoration", color = Color(0xFF64748B), fontSize = 11.sp)
-                    Text("1 Filling", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 14.sp)
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                    Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isSpanish) "Configuración" else "Settings", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
-            }
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("✨ Plaque Index", color = Color(0xFF64748B), fontSize = 11.sp)
-                    Text("Optimal", fontWeight = FontWeight.Bold, color = Color(0xFF26A69A), fontSize = 14.sp)
+
+                // Theme Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (isSpanish) "Tema Oscuro" else "Dark Theme", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    Switch(
+                        checked = isDarkMode,
+                        onCheckedChange = onThemeChange
+                    )
+                }
+
+                // Language Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (isSpanish) "Idioma: Español" else "Language: English", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
+                    TextButton(onClick = {
+                        onLanguageChange(if (isSpanish) "en" else "es")
+                    }) {
+                        Text(if (isSpanish) "Cambiar a Inglés" else "Change to Spanish", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }
 
         // Diagnostic information cards
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.HealthAndSafety, contentDescription = null, tint = Color(0xFF1976D2))
+                    Icon(Icons.Default.HealthAndSafety, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Clinical Registration Data", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                    Text(if (isSpanish) "Datos Clínicos" else "Clinical Registration Data", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Registered Since", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text("2025-10-15", fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A), fontSize = 12.sp)
+                    Text(if (isSpanish) "Registrado desde" else "Registered Since", color = Color(0xFF64748B), fontSize = 12.sp)
+                    Text("2025-10-15", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Last Scaling Care", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text("2026-04-12", fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A), fontSize = 12.sp)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Medical Conditions", color = Color(0xFF64748B), fontSize = 12.sp)
-                    Text("None declared", fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A), fontSize = 12.sp)
+                    Text(if (isSpanish) "Última limpieza" else "Last Scaling Care", color = Color(0xFF64748B), fontSize = 12.sp)
+                    Text("2026-04-12", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
                 }
             }
         }
 
         Button(
-            onClick = {
-                authRepository.logout()
-                onLogout()
-            },
+            onClick = onLogout,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFADBD8)),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth().height(48.dp)
         ) {
             Icon(Icons.Default.Logout, contentDescription = null, tint = Color(0xFF7B241C))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Log Out securely", color = Color(0xFF7B241C), fontWeight = FontWeight.Bold)
+            Text(if (isSpanish) "Cerrar Sesión" else "Log Out securely", color = Color(0xFF7B241C), fontWeight = FontWeight.Bold)
         }
     }
 }
