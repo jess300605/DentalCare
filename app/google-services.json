@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "563114922338",
+    "project_id": "dentalcareapp-e205a",
+    "storage_bucket": "dentalcareapp-e205a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:563114922338:android:c3ed6e4bb73638c3995c3b",
+        "android_client_info": {
+          "package_name": "com.example.dentalcare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB9TZ-oLIPHTMdBuepoV1kZ9DwM29EtznM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
