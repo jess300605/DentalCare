@@ -64,6 +64,7 @@ fun MainAppContainer() {
         var selectedDentist by remember { mutableStateOf<Dentist?>(null) }
         var selectedPatient by remember { mutableStateOf<Patient?>(null) }
         var lastBookingState by remember { mutableStateOf<Appointment?>(null) }
+        var editingAppointment by remember { mutableStateOf<Appointment?>(null) } // non-null while rescheduling
         var currentRoute by remember { mutableStateOf("splash") }
 
         // Shared logout: signs out of Firebase AND clears the cached Google
@@ -75,6 +76,7 @@ fun MainAppContainer() {
             googleSignInClient.signOut()
             selectedPatient = null
             selectedDentist = null
+            editingAppointment = null
             activeRole = "patient"
             navController.navigate("login") { popUpTo(0) { inclusive = true } }
         }
@@ -322,6 +324,7 @@ fun MainAppContainer() {
                     DentistListScreen(
                         dentists = dentistsState,
                         onSelectDentist = { doc ->
+                            editingAppointment = null // fresh booking, not editing one
                             selectedDentist = doc
                             navController.navigate("book-appointment")
                         }
@@ -330,40 +333,103 @@ fun MainAppContainer() {
 
                 composable("book-appointment") {
                     currentRoute = "book-appointment"
+                    val editing = editingAppointment
                     BookAppointmentScreen(
                         dentists = dentistsState,
                         selectedDentist = selectedDentist ?: dentistsState.getOrNull(0),
                         onSelectDentist = { selectedDentist = it },
+                        initialDate = editing?.date ?: "2026-07-25",
+                        initialTime = editing?.time ?: "10:00 AM",
+                        initialReason = editing?.reason ?: "",
+                        isRescheduling = editing != null,
                         onConfirmBooking = { dentist, date, time, reason ->
-                            val uName = currentUser?.displayName ?: "User"
+                            val uName = resolvedUserName
                             val patientUid = uid ?: ""
-                            val newAppt = Appointment(
-                                patientId = patientUid,
-                                dentistId = dentist.id,
-                                dentistName = dentist.name,
-                                dentistSpecialty = dentist.specialty,
-                                date = date,
-                                time = time,
-                                patientName = uName,
-                                reason = reason,
-                                status = AppointmentStatus.Confirmed
-                            )
+
                             scope.launch {
-                                val newId = firestoreRepository.addAppointment(newAppt)
-                                firestoreRepository.addNotification(
-                                    NotificationItem(
-                                        userId = patientUid,
-                                        type = NotificationType.CONFIRMED,
-                                        title = if (isSpanish) "Cita Confirmada" else "Appointment Confirmed",
-                                        message = if (isSpanish)
-                                            "Tu cita con ${dentist.name} el $date a las $time ha sido registrada."
-                                        else
-                                            "Your appointment with ${dentist.name} on $date at $time has been booked.",
-                                        time = if (isSpanish) "justo ahora" else "just now"
+                                if (editing != null) {
+                                    // ---- Rescheduling an existing appointment ----
+                                    val result = firestoreRepository.rescheduleAppointment(
+                                        appointmentId = editing.id,
+                                        oldDentistId = editing.dentistId,
+                                        oldDate = editing.date,
+                                        oldTime = editing.time,
+                                        newDentist = dentist,
+                                        newDate = date,
+                                        newTime = time,
+                                        newReason = reason
                                     )
-                                )
-                                lastBookingState = newAppt.copy(id = newId)
-                                navController.navigate("appointment-confirmation") { popUpTo("book-appointment") { inclusive = true } }
+                                    if (result.isSuccess) {
+                                        firestoreRepository.addNotification(
+                                            NotificationItem(
+                                                userId = patientUid,
+                                                type = NotificationType.UPDATED,
+                                                title = if (isSpanish) "Cita Reprogramada" else "Appointment Rescheduled",
+                                                message = if (isSpanish)
+                                                    "Tu cita con ${dentist.name} fue movida al $date a las $time."
+                                                else
+                                                    "Your appointment with ${dentist.name} was moved to $date at $time.",
+                                                time = if (isSpanish) "justo ahora" else "just now"
+                                            )
+                                        )
+                                        editingAppointment = null
+                                        lastBookingState = editing.copy(
+                                            dentistId = dentist.id,
+                                            dentistName = dentist.name,
+                                            dentistSpecialty = dentist.specialty,
+                                            date = date,
+                                            time = time,
+                                            reason = reason
+                                        )
+                                        navController.navigate("appointment-confirmation") { popUpTo("book-appointment") { inclusive = true } }
+                                    } else if (result.exceptionOrNull() is SlotTakenException) {
+                                        Toast.makeText(
+                                            context,
+                                            if (isSpanish) "Ese horario ya está ocupado. Elige otro." else "That time slot is already taken. Pick another.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    } else {
+                                        Toast.makeText(context, "Error: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                } else {
+                                    // ---- New booking ----
+                                    val newAppt = Appointment(
+                                        patientId = patientUid,
+                                        dentistId = dentist.id,
+                                        dentistName = dentist.name,
+                                        dentistSpecialty = dentist.specialty,
+                                        date = date,
+                                        time = time,
+                                        patientName = uName,
+                                        reason = reason,
+                                        status = AppointmentStatus.Confirmed
+                                    )
+                                    val result = firestoreRepository.bookAppointment(newAppt)
+                                    if (result.isSuccess) {
+                                        firestoreRepository.addNotification(
+                                            NotificationItem(
+                                                userId = patientUid,
+                                                type = NotificationType.CONFIRMED,
+                                                title = if (isSpanish) "Cita Confirmada" else "Appointment Confirmed",
+                                                message = if (isSpanish)
+                                                    "Tu cita con ${dentist.name} el $date a las $time ha sido registrada."
+                                                else
+                                                    "Your appointment with ${dentist.name} on $date at $time has been booked.",
+                                                time = if (isSpanish) "justo ahora" else "just now"
+                                            )
+                                        )
+                                        lastBookingState = newAppt.copy(id = result.getOrNull() ?: "")
+                                        navController.navigate("appointment-confirmation") { popUpTo("book-appointment") { inclusive = true } }
+                                    } else if (result.exceptionOrNull() is SlotTakenException) {
+                                        Toast.makeText(
+                                            context,
+                                            if (isSpanish) "Ese horario ya está ocupado. Elige otro." else "That time slot is already taken. Pick another.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    } else {
+                                        Toast.makeText(context, "Error: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
                             }
                         }
                     )
@@ -390,6 +456,7 @@ fun MainAppContainer() {
                         },
                         onReschedule = { id ->
                             val appt = appointmentsState.find { it.id == id }
+                            editingAppointment = appt
                             selectedDentist = dentistsState.find { it.id == appt?.dentistId }
                             navController.navigate("book-appointment")
                         }

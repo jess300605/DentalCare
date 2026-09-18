@@ -342,11 +342,15 @@ fun BookAppointmentScreen(
     dentists: List<Dentist>,
     selectedDentist: Dentist?,
     onSelectDentist: (Dentist) -> Unit,
+    initialDate: String = "2026-07-25",
+    initialTime: String = "10:00 AM",
+    initialReason: String = "",
+    isRescheduling: Boolean = false,
     onConfirmBooking: (dentist: Dentist, date: String, time: String, reason: String) -> Unit
 ) {
-    var selectedDate by remember { mutableStateOf("2026-07-25") }
-    var selectedTime by remember { mutableStateOf("10:00 AM") }
-    var reason by remember { mutableStateOf("") }
+    var selectedDate by remember(initialDate) { mutableStateOf(initialDate) }
+    var selectedTime by remember(initialTime) { mutableStateOf(initialTime) }
+    var reason by remember(initialReason) { mutableStateOf(initialReason) }
 
     val times = listOf(
         "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
@@ -362,9 +366,17 @@ fun BookAppointmentScreen(
     ) {
         item {
             Text(
-                "Configure Booking Details",
+                if (isRescheduling) "Reschedule Appointment" else "Configure Booking Details",
                 style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
             )
+            if (isRescheduling) {
+                Text(
+                    "You're editing an existing appointment — confirming will move it to the new date/time.",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         }
 
         // Dentist Selection Preview
@@ -485,7 +497,11 @@ fun BookAppointmentScreen(
                     .fillMaxWidth()
                     .height(50.dp)
             ) {
-                Text("Confirm & Book Appointment", fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    if (isRescheduling) "Confirm Reschedule" else "Confirm & Book Appointment",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
         }
     }
