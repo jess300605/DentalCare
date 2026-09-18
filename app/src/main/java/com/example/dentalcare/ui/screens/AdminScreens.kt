@@ -425,6 +425,102 @@ fun ManagePatientsScreen(
 }
 
 // ==========================================
+// 3b. APPOINTMENT / SCHEDULE MANAGEMENT
+// ==========================================
+@Composable
+fun AppointmentManagementScreen(
+    appointments: List<Appointment>,
+    onUpdateStatus: (id: String, status: AppointmentStatus) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
+            .padding(16.dp)
+    ) {
+        Text(
+            "Schedule Management",
+            style = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+        )
+        Text(
+            "Update the status of any appointment in the clinic.",
+            color = Color(0xFF64748B),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (appointments.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No appointments registered yet.", color = Color(0xFF64748B))
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(appointments) { appt ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = CardDefaults.outlinedCardBorder(),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(appt.patientName, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 13.sp)
+                                Text(
+                                    appt.status.name,
+                                    color = appointmentStatusColor(appt.status),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Text(
+                                "${appt.dentistName} · ${appt.dentistSpecialty}",
+                                color = Color(0xFF64748B),
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                            Text(
+                                "${appt.date} · ${appt.time}",
+                                color = Color(0xFF475569),
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                            Text(
+                                "Reason: ${appt.reason}",
+                                color = Color(0xFF64748B),
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                AppointmentStatus.values().forEach { statusOption ->
+                                    FilterChip(
+                                        selected = appt.status == statusOption,
+                                        onClick = { onUpdateStatus(appt.id, statusOption) },
+                                        label = { Text(statusOption.name, fontSize = 10.sp) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun appointmentStatusColor(status: AppointmentStatus): Color = when (status) {
+    AppointmentStatus.Confirmed -> Color(0xFF26A69A)
+    AppointmentStatus.Pending -> Color(0xFFFFA000)
+    AppointmentStatus.Completed -> Color(0xFF1976D2)
+    AppointmentStatus.Cancelled -> Color(0xFFF44336)
+}
+
+// ==========================================
 // 4. TREATMENT REGISTRATION (Dental Charts)
 // ==========================================
 @Composable

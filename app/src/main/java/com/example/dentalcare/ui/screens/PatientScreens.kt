@@ -25,7 +25,6 @@ import com.example.dentalcare.data.AppointmentStatus
 import com.example.dentalcare.data.Dentist
 import com.example.dentalcare.data.NotificationItem
 import com.example.dentalcare.data.NotificationType
-import com.example.dentalcare.data.AuthRepository
 
 // ==========================================
 // 1. PATIENT DASHBOARD VIEW
@@ -896,13 +895,14 @@ fun NotificationsScreen(
 // ==========================================
 @Composable
 fun PatientProfileScreen(
+    userName: String,
+    userEmail: String,
     isDarkMode: Boolean,
     onThemeChange: (Boolean) -> Unit,
     currentLanguage: String,
     onLanguageChange: (String) -> Unit,
     onLogout: () -> Unit
 ) {
-    val authRepository = remember { AuthRepository() }
     val isSpanish = currentLanguage == "es"
 
     Column(
@@ -920,19 +920,19 @@ fun PatientProfileScreen(
                 .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center
         ) {
-            val initials = authRepository.currentUser?.displayName?.split(" ")
-                ?.mapNotNull { it.firstOrNull()?.toString() }
-                ?.joinToString("")?.take(2)?.uppercase() ?: "U"
+            val initials = userName.split(" ")
+                .mapNotNull { it.firstOrNull()?.toString() }
+                .joinToString("").take(2).uppercase().ifEmpty { "U" }
             Text(initials, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
-            authRepository.currentUser?.displayName ?: (if (isSpanish) "Nombre de Usuario" else "User Name"),
+            userName,
             style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(top = 12.dp)
         )
         Text(
-            authRepository.currentUser?.email ?: "user@example.com",
+            userEmail,
             color = Color(0xFF64748B),
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)

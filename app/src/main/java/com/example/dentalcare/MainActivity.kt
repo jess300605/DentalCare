@@ -1,6 +1,7 @@
 package com.example.dentalcare
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,14 @@ import androidx.navigation.compose.rememberNavController
 import com.example.dentalcare.data.*
 import com.example.dentalcare.ui.screens.*
 import com.example.dentalcare.ui.theme.DentalCareTheme
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseUser
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,10 +39,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun todayDateString(): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppContainer() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Settings States
     var isDarkMode by remember { mutableStateOf(false) }
@@ -41,35 +54,140 @@ fun MainAppContainer() {
     val isSpanish = currentLanguage == "es"
 
     val authRepository = remember { AuthRepository() }
-    val currentUser = authRepository.currentUser
+    val firestoreRepository = remember { FirestoreRepository() }
 
     DentalCareTheme(darkTheme = isDarkMode) {
         val navController = rememberNavController()
-
-        // Global clinical states
-        var dentistsState by remember { mutableStateOf(InitialData.dentists) }
-        var patientsState by remember { mutableStateOf(InitialData.patients) }
-        var appointmentsState by remember { mutableStateOf(InitialData.appointments) }
-        var notificationsState by remember { mutableStateOf(InitialData.notifications) }
 
         // Navigation and contextual selection variables
         var activeRole by remember { mutableStateOf("patient") } // "patient" or "admin"
         var selectedDentist by remember { mutableStateOf<Dentist?>(null) }
         var selectedPatient by remember { mutableStateOf<Patient?>(null) }
         var lastBookingState by remember { mutableStateOf<Appointment?>(null) }
-
-        // Filtered states based on currentUser
-        val userAppointments = remember(appointmentsState, currentUser) {
-            if (activeRole == "admin") appointmentsState
-            else appointmentsState.filter { it.patientName == (currentUser?.displayName ?: "User") }
-        }
-
-        val userNotifications = remember(notificationsState, currentUser) {
-            if (activeRole == "admin") notificationsState
-            else notificationsState
-        }
-
         var currentRoute by remember { mutableStateOf("splash") }
+
+        // Shared logout: signs out of Firebase AND clears the cached Google
+        // account, so next time "Continue with Google" is tapped it shows
+        // the account picker again instead of silently reusing this one.
+        val performLogout: () -> Unit = {
+            authRepository.logout()
+            val googleSignInClient = GoogleSignIn.getClient(context, GoogleSignInOptions.DEFAULT_SIGN_IN)
+            googleSignInClient.signOut()
+            selectedPatient = null
+            selectedDentist = null
+            activeRole = "patient"
+            navController.navigate("login") { popUpTo(0) { inclusive = true } }
+        }
+
+        // Reacts to Firebase's own auth-state notifications instead of
+        // reading currentUser right after a login call returns — this is
+        // what was causing the multi-second lag / stuck "User" placeholder
+        // when switching accounts.
+        val currentUser by produceState<FirebaseUser?>(initialValue = authRepository.currentUser) {
+            authRepository.observeAuthState().collect { value = it }
+        }
+        val uid = currentUser?.uid
+        val isAdmin = activeRole == "admin"
+
+        // The Firestore users/{uid} doc is the reliable source for the
+        // display name: FirebaseUser.displayName isn't always populated
+        // (e.g. accounts created straight in the Firebase console), but the
+        // "name" we saved at registration always is.
+        val userProfileState by produceState<UserProfile?>(initialValue = null, uid) {
+            value = if (uid != null) {
+                try {
+                    firestoreRepository.getUserProfile(uid)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DentalCare", "getUserProfile failed", e)
+                    null
+                }
+            } else {
+                null
+            }
+        }
+        val resolvedUserName = userProfileState?.name?.takeIf { it.isNotBlank() }
+            ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
+            ?: (if (isSpanish) "Usuario" else "User")
+        val resolvedUserEmail = userProfileState?.email?.takeIf { it.isNotBlank() }
+            ?: currentUser?.email
+            ?: "user@example.com"
+
+        // ---- Live Firestore-backed state ----
+        // Each of these opens a real-time listener scoped to the signed-in
+        // user (and role, for appointments/patients). They automatically
+        // restart when uid/isAdmin change, e.g. after login or logout.
+        // If a listener fails (most often a Firestore permission error),
+        // we now surface it instead of leaving the screen silently empty.
+        val appointmentsState by produceState(initialValue = emptyList<Appointment>(), uid, isAdmin) {
+            if (uid != null) {
+                try {
+                    firestoreRepository.observeAppointments(uid, isAdmin).collect { value = it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DentalCare", "observeAppointments failed", e)
+                    Toast.makeText(context, "No se pudieron cargar las citas: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                value = emptyList()
+            }
+        }
+
+        val dentistsState by produceState(initialValue = emptyList<Dentist>(), uid) {
+            if (uid != null) {
+                try {
+                    firestoreRepository.observeDentists().collect { value = it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DentalCare", "observeDentists failed", e)
+                    Toast.makeText(context, "No se pudo cargar la lista de dentistas: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                value = emptyList()
+            }
+        }
+
+        val patientsState by produceState(initialValue = emptyList<Patient>(), uid, isAdmin) {
+            if (uid != null && isAdmin) {
+                try {
+                    firestoreRepository.observePatients().collect { value = it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DentalCare", "observePatients failed", e)
+                    Toast.makeText(context, "No se pudieron cargar los pacientes: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                value = emptyList()
+            }
+        }
+
+        val notificationsState by produceState(initialValue = emptyList<NotificationItem>(), uid) {
+            if (uid != null) {
+                try {
+                    firestoreRepository.observeNotifications(uid).collect { value = it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DentalCare", "observeNotifications failed", e)
+                    Toast.makeText(context, "No se pudieron cargar las notificaciones: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                value = emptyList()
+            }
+        }
+
+
+        // First time an admin opens the app, make sure the dentist catalog
+        // isn't empty (one-time seed, no-ops if dentists already exist).
+        LaunchedEffect(uid, isAdmin) {
+            if (uid != null && isAdmin) {
+                firestoreRepository.seedDentistsIfEmpty(InitialData.dentists)
+            }
+        }
 
         Scaffold(
             topBar = {
@@ -85,6 +203,10 @@ fun MainAppContainer() {
                                     "notifications" -> if (isSpanish) "Notificaciones" else "Notifications"
                                     "patient-profile" -> if (isSpanish) "Mi Perfil" else "Patient Profile"
                                     "admin-dashboard" -> "Clinical Dashboard"
+                                    "manage-dentists" -> if (isSpanish) "Gestionar Dentistas" else "Manage Dentists"
+                                    "manage-patients" -> if (isSpanish) "Pacientes" else "Patients"
+                                    "appointment-management" -> if (isSpanish) "Gestionar Citas" else "Manage Appointments"
+                                    "treatment-registration" -> if (isSpanish) "Registrar Tratamiento" else "Treatment Record"
                                     else -> "DentalCare"
                                 },
                                 style = MaterialTheme.typography.titleLarge.copy(color = Color.White)
@@ -100,7 +222,16 @@ fun MainAppContainer() {
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = if (activeRole == "admin") Color(0xFF26A69A) else Color(0xFF1976D2)
-                        )
+                        ),
+                        actions = {
+                            // Admin has no bottom nav / profile screen, so it
+                            // needs its own way to log out from anywhere.
+                            if (activeRole == "admin") {
+                                IconButton(onClick = performLogout) {
+                                    Icon(Icons.Default.Logout, contentDescription = "Log out", tint = Color.White)
+                                }
+                            }
+                        }
                     )
                 }
             },
@@ -178,9 +309,9 @@ fun MainAppContainer() {
                 composable("patient-dashboard") {
                     currentRoute = "patient-dashboard"
                     PatientDashboardScreen(
-                        appointments = userAppointments,
-                        notifications = userNotifications,
-                        userName = currentUser?.displayName ?: (if (isSpanish) "Usuario" else "User"),
+                        appointments = appointmentsState,
+                        notifications = notificationsState,
+                        userName = resolvedUserName,
                         onNavigate = { route -> navController.navigate(route) },
                         onSelectAppointment = { /* Select */ }
                     )
@@ -201,12 +332,13 @@ fun MainAppContainer() {
                     currentRoute = "book-appointment"
                     BookAppointmentScreen(
                         dentists = dentistsState,
-                        selectedDentist = selectedDentist ?: dentistsState[0],
+                        selectedDentist = selectedDentist ?: dentistsState.getOrNull(0),
                         onSelectDentist = { selectedDentist = it },
                         onConfirmBooking = { dentist, date, time, reason ->
                             val uName = currentUser?.displayName ?: "User"
+                            val patientUid = uid ?: ""
                             val newAppt = Appointment(
-                                id = "a_" + System.currentTimeMillis(),
+                                patientId = patientUid,
                                 dentistId = dentist.id,
                                 dentistName = dentist.name,
                                 dentistSpecialty = dentist.specialty,
@@ -216,9 +348,23 @@ fun MainAppContainer() {
                                 reason = reason,
                                 status = AppointmentStatus.Confirmed
                             )
-                            appointmentsState = listOf(newAppt) + appointmentsState
-                            lastBookingState = newAppt
-                            navController.navigate("appointment-confirmation") { popUpTo("book-appointment") { inclusive = true } }
+                            scope.launch {
+                                val newId = firestoreRepository.addAppointment(newAppt)
+                                firestoreRepository.addNotification(
+                                    NotificationItem(
+                                        userId = patientUid,
+                                        type = NotificationType.CONFIRMED,
+                                        title = if (isSpanish) "Cita Confirmada" else "Appointment Confirmed",
+                                        message = if (isSpanish)
+                                            "Tu cita con ${dentist.name} el $date a las $time ha sido registrada."
+                                        else
+                                            "Your appointment with ${dentist.name} on $date at $time has been booked.",
+                                        time = if (isSpanish) "justo ahora" else "just now"
+                                    )
+                                )
+                                lastBookingState = newAppt.copy(id = newId)
+                                navController.navigate("appointment-confirmation") { popUpTo("book-appointment") { inclusive = true } }
+                            }
                         }
                     )
                 }
@@ -238,9 +384,9 @@ fun MainAppContainer() {
                 composable("my-appointments") {
                     currentRoute = "my-appointments"
                     MyAppointmentsScreen(
-                        appointments = userAppointments,
+                        appointments = appointmentsState,
                         onCancel = { id ->
-                            appointmentsState = appointmentsState.map { if (it.id == id) it.copy(status = AppointmentStatus.Cancelled) else it }
+                            scope.launch { firestoreRepository.updateAppointmentStatus(id, AppointmentStatus.Cancelled) }
                         },
                         onReschedule = { id ->
                             val appt = appointmentsState.find { it.id == id }
@@ -253,25 +399,26 @@ fun MainAppContainer() {
                 composable("notifications") {
                     currentRoute = "notifications"
                     NotificationsScreen(
-                        notifications = userNotifications,
+                        notifications = notificationsState,
                         onMarkAsRead = { id ->
-                            notificationsState = notificationsState.map { if (it.id == id) it.copy(read = true) else it }
+                            scope.launch { firestoreRepository.markNotificationRead(id) }
                         },
-                        onClearAll = { notificationsState = emptyList() }
+                        onClearAll = {
+                            scope.launch { firestoreRepository.clearNotifications(notificationsState.map { it.id }) }
+                        }
                     )
                 }
 
                 composable("patient-profile") {
                     currentRoute = "patient-profile"
                     PatientProfileScreen(
+                        userName = resolvedUserName,
+                        userEmail = resolvedUserEmail,
                         isDarkMode = isDarkMode,
                         onThemeChange = { isDarkMode = it },
                         currentLanguage = currentLanguage,
                         onLanguageChange = { currentLanguage = it },
-                        onLogout = {
-                            authRepository.logout()
-                            navController.navigate("login") { popUpTo(0) { inclusive = true } }
-                        }
+                        onLogout = performLogout
                     )
                 }
 
@@ -282,6 +429,70 @@ fun MainAppContainer() {
                         patients = patientsState,
                         dentists = dentistsState,
                         onNavigate = { route -> navController.navigate(route) }
+                    )
+                }
+
+                // ---- These four routes were referenced by the admin
+                // dashboard but never registered here, so tapping any of
+                // its cards used to crash the app. Now they're wired to
+                // real Firestore reads/writes. ----
+
+                composable("manage-dentists") {
+                    currentRoute = "manage-dentists"
+                    ManageDentistsScreen(
+                        dentists = dentistsState,
+                        onAddDentist = { newDoc ->
+                            scope.launch { firestoreRepository.addDentist(newDoc) }
+                        },
+                        onDeleteDentist = { id ->
+                            scope.launch { firestoreRepository.deleteDentist(id) }
+                        },
+                        onToggleAvailability = { id ->
+                            val doc = dentistsState.find { it.id == id }
+                            if (doc != null) {
+                                scope.launch { firestoreRepository.toggleDentistAvailability(id, !doc.availableToday) }
+                            }
+                        }
+                    )
+                }
+
+                composable("manage-patients") {
+                    currentRoute = "manage-patients"
+                    ManagePatientsScreen(
+                        patients = patientsState,
+                        onSelectPatient = { p -> selectedPatient = p },
+                        onNavigate = { route -> navController.navigate(route) }
+                    )
+                }
+
+                composable("appointment-management") {
+                    currentRoute = "appointment-management"
+                    AppointmentManagementScreen(
+                        appointments = appointmentsState,
+                        onUpdateStatus = { id, status ->
+                            scope.launch { firestoreRepository.updateAppointmentStatus(id, status) }
+                        }
+                    )
+                }
+
+                composable("treatment-registration") {
+                    currentRoute = "treatment-registration"
+                    TreatmentRegistrationScreen(
+                        selectedPatient = selectedPatient,
+                        onSaveTreatment = { patientId, diagnosis, treatment, observations ->
+                            scope.launch {
+                                firestoreRepository.addTreatmentRecord(
+                                    patientId,
+                                    TreatmentRecord(
+                                        date = todayDateString(),
+                                        diagnosis = diagnosis,
+                                        treatment = treatment,
+                                        observations = observations
+                                    )
+                                )
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }

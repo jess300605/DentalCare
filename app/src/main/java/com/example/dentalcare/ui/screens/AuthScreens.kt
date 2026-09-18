@@ -23,6 +23,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dentalcare.data.AuthRepository
+import com.example.dentalcare.data.FirestoreRepository
+import com.example.dentalcare.data.Patient
+import com.example.dentalcare.data.UserProfile
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -110,6 +113,7 @@ fun LoginScreen(
     onGoToRegister: () -> Unit
 ) {
     val authRepository = remember { AuthRepository() }
+    val firestoreRepository = remember { FirestoreRepository() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var email by remember { mutableStateOf("") }
@@ -131,10 +135,29 @@ fun LoginScreen(
             scope.launch {
                 isLoading = true
                 val authResult = authRepository.loginWithGoogle(credential)
-                isLoading = false
                 if (authResult.isSuccess) {
-                    onLogin("patient")
+                    val user = authResult.getOrNull()
+                    val uid = user?.uid ?: ""
+                    var profile = firestoreRepository.getUserProfile(uid)
+                    if (profile == null) {
+                        // First time this Google account signs in: create its
+                        // profile + clinical record, always as "patient".
+                        profile = UserProfile(
+                            uid = uid,
+                            name = user?.displayName ?: "",
+                            email = user?.email ?: "",
+                            phone = "",
+                            role = "patient"
+                        )
+                        firestoreRepository.createUserProfile(profile)
+                        firestoreRepository.createPatientRecord(
+                            Patient(id = uid, name = profile.name, email = profile.email, phone = "", lastVisit = "")
+                        )
+                    }
+                    isLoading = false
+                    onLogin(profile.role)
                 } else {
+                    isLoading = false
                     errorMessage = authResult.exceptionOrNull()?.message ?: "Google Login failed"
                 }
             }
@@ -242,11 +265,17 @@ fun LoginScreen(
                         isLoading = true
                         errorMessage = null
                         val result = authRepository.login(email, password)
-                        isLoading = false
                         if (result.isSuccess) {
-                            val role = if (email.contains("admin")) "admin" else "patient"
+                            val uid = result.getOrNull()?.uid ?: ""
+                            // The role always comes from Firestore, never from
+                            // anything typed by the person logging in. If for
+                            // some reason there's no profile doc yet, default
+                            // to the safe option: "patient".
+                            val role = firestoreRepository.getUserProfile(uid)?.role ?: "patient"
+                            isLoading = false
                             onLogin(role)
                         } else {
+                            isLoading = false
                             errorMessage = result.exceptionOrNull()?.message ?: "Login failed"
                         }
                     }
@@ -329,6 +358,7 @@ fun RegisterScreen(
     onGoToLogin: () -> Unit
 ) {
     val authRepository = remember { AuthRepository() }
+    val firestoreRepository = remember { FirestoreRepository() }
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -446,10 +476,21 @@ fun RegisterScreen(
                         isLoading = true
                         errorMessage = null
                         val result = authRepository.register(email, password, name)
-                        isLoading = false
                         if (result.isSuccess) {
+                            val uid = result.getOrNull()?.uid ?: ""
+                            // Every new account is a "patient". There is no
+                            // signup path that grants "admin" — that field is
+                            // only ever changed by hand in the Firestore console.
+                            firestoreRepository.createUserProfile(
+                                UserProfile(uid = uid, name = name, email = email, phone = phone, role = "patient")
+                            )
+                            firestoreRepository.createPatientRecord(
+                                Patient(id = uid, name = name, email = email, phone = phone, lastVisit = "")
+                            )
+                            isLoading = false
                             onRegister(name)
                         } else {
+                            isLoading = false
                             errorMessage = result.exceptionOrNull()?.message ?: "Registration failed"
                         }
                     }

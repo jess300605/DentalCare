@@ -1,7 +1,5 @@
 package com.example.dentalcare.data
 
-import java.util.UUID
-
 enum class AppointmentStatus {
     Pending, Confirmed, Completed, Cancelled
 }
@@ -10,44 +8,55 @@ enum class NotificationType {
     CONFIRMED, REMINDER, UPDATED, CANCELLED
 }
 
+// NOTE: every field below has a default value. This is required so the
+// Firestore SDK can build these objects automatically via toObject() (it
+// needs a no-arg constructor under the hood). Don't remove the defaults.
+
 data class Dentist(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val specialty: String,
-    val rating: Double,
-    val reviewsCount: Int,
-    val availableToday: Boolean,
-    val avatarColor: String, // String representation for styling
+    val id: String = "",
+    val name: String = "",
+    val specialty: String = "",
+    val rating: Double = 5.0,
+    val reviewsCount: Int = 0,
+    val availableToday: Boolean = true,
+    val avatarColor: String = "Primary", // String representation for styling
     val imageUrl: String? = null
 )
 
 data class TreatmentRecord(
-    val date: String,
-    val diagnosis: String,
-    val treatment: String,
-    val observations: String
+    val date: String = "",
+    val diagnosis: String = "",
+    val treatment: String = "",
+    val observations: String = ""
 )
 
+/**
+ * Clinical patient record, managed by admins. When a patient registers in
+ * the app, its `id` is set to that user's Firebase Auth uid, so this record
+ * is 1:1 linked with users/{uid}. Patients added manually by an admin
+ * (without an app account) get a random Firestore-generated id instead.
+ */
 data class Patient(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val email: String,
-    val phone: String,
-    val lastVisit: String,
+    val id: String = "",
+    val name: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val lastVisit: String = "",
     val nextAppointment: String? = null,
     val history: List<TreatmentRecord> = emptyList()
 )
 
 data class Appointment(
-    val id: String = UUID.randomUUID().toString(),
-    val dentistId: String,
-    val dentistName: String,
-    val dentistSpecialty: String,
-    val date: String,
-    val time: String,
-    val patientName: String,
-    val reason: String,
-    val status: AppointmentStatus,
+    val id: String = "",
+    val patientId: String = "", // Firebase Auth uid of the owning patient
+    val dentistId: String = "",
+    val dentistName: String = "",
+    val dentistSpecialty: String = "",
+    val date: String = "",
+    val time: String = "",
+    val patientName: String = "",
+    val reason: String = "",
+    val status: AppointmentStatus = AppointmentStatus.Pending,
     val notes: String? = null,
     val diagnosis: String? = null,
     val treatment: String? = null,
@@ -55,14 +64,38 @@ data class Appointment(
 )
 
 data class NotificationItem(
-    val id: String = UUID.randomUUID().toString(),
-    val type: NotificationType,
-    val title: String,
-    val message: String,
-    val time: String,
+    val id: String = "",
+    val userId: String = "", // Firebase Auth uid of the owning patient
+    val type: NotificationType = NotificationType.REMINDER,
+    val title: String = "",
+    val message: String = "",
+    val time: String = "",
     val read: Boolean = false
 )
 
+/**
+ * Lives at users/{uid}. This is the ONLY place a role is stored. A client
+ * can never grant itself "admin" — accounts are always created with
+ * role = "patient", and an admin manually flips this field to "admin" from
+ * the Firestore console. firestore.rules also blocks a user from editing
+ * their own role field, so this can't be spoofed even if someone tried
+ * writing to Firestore directly from a modified client.
+ */
+data class UserProfile(
+    val uid: String = "",
+    val name: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val role: String = "patient" // "patient" | "admin"
+)
+
+/**
+ * This is no longer the app's live data source — Firestore is. It's only
+ * used now as one-time seed data: the first time an admin opens the app,
+ * FirestoreRepository.seedDentistsIfEmpty() copies `dentists` below into
+ * the real `dentists` collection so the catalog isn't empty. Appointments,
+ * patients and notifications are NOT seeded — they start real and empty.
+ */
 object InitialData {
     val dentists = listOf(
         Dentist(
