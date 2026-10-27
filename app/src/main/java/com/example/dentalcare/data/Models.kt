@@ -75,18 +75,24 @@ data class NotificationItem(
 
 /**
  * Lives at users/{uid}. This is the ONLY place a role is stored. A client
- * can never grant itself "admin" — accounts are always created with
- * role = "patient", and an admin manually flips this field to "admin" from
- * the Firestore console. firestore.rules also blocks a user from editing
- * their own role field, so this can't be spoofed even if someone tried
- * writing to Firestore directly from a modified client.
+ * can never grant itself "admin" or "dentist" — accounts are always
+ * created with role = "patient", and an admin manually flips this field
+ * from the Firestore console. firestore.rules also blocks a user from
+ * editing their own role field, so this can't be spoofed even if someone
+ * tried writing to Firestore directly from a modified client.
+ *
+ * For role = "dentist", `dentistId` must also be set by hand to the id of
+ * that person's document in the `dentists` catalog collection — that's
+ * what tells the app (and the security rules) which appointments are
+ * "theirs". Leave it blank for patient/admin accounts.
  */
 data class UserProfile(
     val uid: String = "",
     val name: String = "",
     val email: String = "",
     val phone: String = "",
-    val role: String = "patient" // "patient" | "admin"
+    val role: String = "patient", // "patient" | "admin" | "dentist"
+    val dentistId: String = ""
 )
 
 /**

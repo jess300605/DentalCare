@@ -60,7 +60,7 @@ fun MainAppContainer() {
         val navController = rememberNavController()
 
         // Navigation and contextual selection variables
-        var activeRole by remember { mutableStateOf("patient") } // "patient" or "admin"
+        var activeRole by remember { mutableStateOf("patient") } // "patient", "admin" or "dentist"
         var selectedDentist by remember { mutableStateOf<Dentist?>(null) }
         var selectedPatient by remember { mutableStateOf<Patient?>(null) }
         var lastBookingState by remember { mutableStateOf<Appointment?>(null) }
@@ -90,6 +90,7 @@ fun MainAppContainer() {
         }
         val uid = currentUser?.uid
         val isAdmin = activeRole == "admin"
+        val isDentistRole = activeRole == "dentist"
 
         // The Firestore users/{uid} doc is the reliable source for the
         // display name: FirebaseUser.displayName isn't always populated
@@ -115,6 +116,10 @@ fun MainAppContainer() {
         val resolvedUserEmail = userProfileState?.email?.takeIf { it.isNotBlank() }
             ?: currentUser?.email
             ?: "user@example.com"
+        // Which `dentists` catalog entry a "dentist" role account is linked
+        // to (set by hand in Firestore, see FIRESTORE_SETUP.md). Null means
+        // an admin hasn't linked this account yet.
+        val linkedDentistId = userProfileState?.dentistId?.takeIf { it.isNotBlank() }
 
         // ---- Live Firestore-backed state ----
         // Each of these opens a real-time listener scoped to the signed-in
@@ -152,8 +157,8 @@ fun MainAppContainer() {
             }
         }
 
-        val patientsState by produceState(initialValue = emptyList<Patient>(), uid, isAdmin) {
-            if (uid != null && isAdmin) {
+        val patientsState by produceState(initialValue = emptyList<Patient>(), uid, isAdmin, isDentistRole) {
+            if (uid != null && (isAdmin || isDentistRole)) {
                 try {
                     firestoreRepository.observePatients().collect { value = it }
                 } catch (e: CancellationException) {
@@ -182,6 +187,21 @@ fun MainAppContainer() {
             }
         }
 
+        // A dentist's own schedule — only appointments assigned to THEM.
+        val dentistAppointmentsState by produceState(initialValue = emptyList<Appointment>(), uid, isDentistRole, linkedDentistId) {
+            if (uid != null && isDentistRole && linkedDentistId != null) {
+                try {
+                    firestoreRepository.observeAppointmentsForDentist(linkedDentistId).collect { value = it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DentalCare", "observeAppointmentsForDentist failed", e)
+                    Toast.makeText(context, "No se pudo cargar tu agenda: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                value = emptyList()
+            }
+        }
 
         // First time an admin opens the app, make sure the dentist catalog
         // isn't empty (one-time seed, no-ops if dentists already exist).
@@ -209,13 +229,16 @@ fun MainAppContainer() {
                                     "manage-patients" -> if (isSpanish) "Pacientes" else "Patients"
                                     "appointment-management" -> if (isSpanish) "Gestionar Citas" else "Manage Appointments"
                                     "treatment-registration" -> if (isSpanish) "Registrar Tratamiento" else "Treatment Record"
+                                    "dentist-dashboard" -> if (isSpanish) "Mi Agenda" else "My Schedule"
                                     else -> "DentalCare"
                                 },
                                 style = MaterialTheme.typography.titleLarge.copy(color = Color.White)
                             )
                         },
                         navigationIcon = {
-                            val canGoBack = currentRoute != "patient-dashboard" && currentRoute != "admin-dashboard"
+                            val canGoBack = currentRoute != "patient-dashboard" &&
+                                currentRoute != "admin-dashboard" &&
+                                currentRoute != "dentist-dashboard"
                             if (canGoBack) {
                                 IconButton(onClick = { navController.popBackStack() }) {
                                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -223,12 +246,16 @@ fun MainAppContainer() {
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = if (activeRole == "admin") Color(0xFF26A69A) else Color(0xFF1976D2)
+                            containerColor = when (activeRole) {
+                                "admin" -> Color(0xFF26A69A)
+                                "dentist" -> Color(0xFF5E35B1)
+                                else -> Color(0xFF1976D2)
+                            }
                         ),
                         actions = {
-                            // Admin has no bottom nav / profile screen, so it
-                            // needs its own way to log out from anywhere.
-                            if (activeRole == "admin") {
+                            // Admin and dentist have no bottom nav / profile
+                            // screen, so they need their own way to log out.
+                            if (activeRole == "admin" || activeRole == "dentist") {
                                 IconButton(onClick = performLogout) {
                                     Icon(Icons.Default.Logout, contentDescription = "Log out", tint = Color.White)
                                 }
@@ -288,7 +315,11 @@ fun MainAppContainer() {
                             activeRole = role
                             val msg = if (isSpanish) "Sesión iniciada como $role" else "Logged in as $role"
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                            val dest = if (role == "admin") "admin-dashboard" else "patient-dashboard"
+                            val dest = when (role) {
+                                "admin" -> "admin-dashboard"
+                                "dentist" -> "dentist-dashboard"
+                                else -> "patient-dashboard"
+                            }
                             navController.navigate(dest) { popUpTo("login") { inclusive = true } }
                         },
                         onGoToRegister = { navController.navigate("register") }
@@ -496,6 +527,22 @@ fun MainAppContainer() {
                         patients = patientsState,
                         dentists = dentistsState,
                         onNavigate = { route -> navController.navigate(route) }
+                    )
+                }
+
+                composable("dentist-dashboard") {
+                    currentRoute = "dentist-dashboard"
+                    DentistDashboardScreen(
+                        dentistName = resolvedUserName,
+                        isLinked = linkedDentistId != null,
+                        appointments = dentistAppointmentsState,
+                        onUpdateStatus = { id, status ->
+                            scope.launch { firestoreRepository.updateAppointmentStatus(id, status) }
+                        },
+                        onAddTreatment = { appt ->
+                            selectedPatient = patientsState.find { it.id == appt.patientId }
+                            navController.navigate("treatment-registration")
+                        }
                     )
                 }
 
