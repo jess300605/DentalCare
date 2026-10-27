@@ -1,0 +1,125 @@
+rules_version = '2';
+
+// DentalCare — Firestore security rules
+//
+// The role model: users/{uid}.role is the single source of truth for who
+// is an admin or a dentist. Every account is created with role = "patient"
+// (see AuthScreens.kt) and can never change its own role (see the `update`
+// rule on /users below). To promote someone, open the Firestore console,
+// go to the `users` collection, find their document (its id is their
+// Firebase Auth uid) and change `role` by hand to "admin" or "dentist".
+// For "dentist", also set `dentistId` to that person's id in the
+// `dentists` catalog collection. There is no in-app path to becoming
+// either one.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return hasProfile() && myProfile().role == "admin";
+    }
+
+    function isDentist() {
+      return hasProfile() && myProfile().role == "dentist";
+    }
+
+    // True when the signed-in dentist account is linked (via
+    // users/{uid}.dentistId) to the given dentist catalog id — i.e. this
+    // appointment/record belongs to THEM specifically, not just "some
+    // dentist".
+    function isDentistFor(dentistId) {
+      return isDentist() && myProfile().dentistId == dentistId;
+    }
+
+    // ---------------- users/{uid} ----------------
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      // Anyone can create their OWN profile, but only ever as "patient".
+      allow create: if isOwner(userId) && request.resource.data.role == "patient";
+      // A user can update their own profile as long as they don't touch
+      // the role field. Admins can update anyone (including roles).
+      allow update: if isAdmin() ||
+        (isOwner(userId) && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- appointments/{id} ----------------
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn() &&
+        (resource.data.patientId == request.auth.uid ||
+         isAdmin() ||
+         isDentistFor(resource.data.dentistId));
+      allow create: if isSignedIn() &&
+        (request.resource.data.patientId == request.auth.uid || isAdmin());
+      // The patient who owns it can update/cancel it but can't reassign it
+      // to someone else. The dentist it's assigned to can update status and
+      // clinical notes but can't reassign the patient or steal it for a
+      // different dentist. Admins can update any appointment freely.
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        resource.data.patientId == request.auth.uid &&
+        request.resource.data.patientId == resource.data.patientId
+      ) || (
+        isDentistFor(resource.data.dentistId) &&
+        request.resource.data.patientId == resource.data.patientId &&
+        request.resource.data.dentistId == resource.data.dentistId
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- appointment_slots/{dentistId_date_time} ----------------
+    // Deterministic-id "lock" documents that make double-booking
+    // impossible: Firestore only lets ONE document exist at a given path,
+    // so a create() collision is caught server-side inside the booking
+    // transaction, not by a racy client-side read-then-write.
+    match /appointment_slots/{slotId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn() &&
+        (resource.data.patientId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+    }
+
+    // ---------------- dentists/{id} (public catalog) ----------------
+    match /dentists/{dentistId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------------- patients/{id} (clinical records) ----------------
+    match /patients/{patientId} {
+      // A patient can read (not write) their own clinical record. Admins
+      // and dentists can read/edit any patient's record (diagnoses,
+      // treatments, etc) — this app doesn't restrict a dentist to only the
+      // patients they've personally treated, so treat "dentist" as a
+      // clinic-staff-level trust the same way "admin" is.
+      allow read: if isOwner(patientId) || isAdmin() || isDentist();
+      allow create: if isOwner(patientId) || isAdmin();
+      allow update: if isAdmin() || isDentist();
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- notifications/{id} ----------------
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+        (request.resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}
