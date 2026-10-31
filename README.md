@@ -63,6 +63,19 @@ Permite supervisar y gestionar las operaciones generales de la clínica.
 
 ---
 
+
+## Usuarios de prueba
+
+Las siguientes credenciales pueden utilizarse para probar el inicio de sesión de la aplicación.
+
+| Rol | Correo electrónico | Contraseña |
+|---|---|---|
+| Doctor | `Marcus@doctor.sv` | `doctorsv2026` |
+| Administrador | `Admin2@doctor.sv` | `admin2026` |
+| Doctor | `James@doctor.sv` | `doctorsv2026` |
+
+
+
 ## 🛠️ Tecnologías utilizadas
 
 | Tecnología | Propósito |
